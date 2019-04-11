@@ -1,0 +1,4 @@
+#/bin/bash
+# simple script for logging into database servers
+
+/usr/bin/mysql -A -uMyUserName -pMyPassword -h$* 

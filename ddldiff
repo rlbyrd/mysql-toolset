@@ -1,0 +1,123 @@
+#!/bin/bash
+
+# Expects:  <host> <schema>
+# If no *.last exists, make one.
+# if one does, diff it and report
+
+# Set this manually.  Everything else will branch off this.
+BASEDIR="/data/backups/ddl/"
+DBUSER="svc_dba_adhoc"
+DBPASS="ADXEZKZLbgdvcB24nvPu"
+TZ="America/Los_Angeles"
+EMAILTO="richard.byrd@vacasa.com,mark.butler@vacasa.com,rlbyrd@rlbyrd.com"
+
+
+
+if [ "$2" == "" ]
+then
+	echo " "
+	echo "USAGE: ddldiff <host> <schema>"
+	echo " "
+fi
+
+HOST=${1}
+SCHEMA=${2}
+TMPFILE="/tmp/${HOST}-${SCHEMA}.tmp"
+/bin/rm ${TMPFILE} 2>/dev/null
+
+echo " " > ${TMPFILE}
+
+
+BACKUPDIR="${BASEDIR}${HOST}/${SCHEMA}/"
+
+mkdir "${BASEDIR}${HOST}" &> /dev/null
+mkdir "${BASEDIR}${HOST}/${SCHEMA}" &>/dev/null
+
+# Rename older .sql files
+
+cd ${BACKUPDIR}
+
+
+
+
+
+
+
+for file in *.19 ; do mv -f $file ${file//.19/.20} 2> /dev/null ; done
+for file in *.18 ; do mv -f $file ${file//.18/.19} 2> /dev/null ; done
+for file in *.17 ; do mv -f $file ${file//.17/.18} 2> /dev/null ; done
+for file in *.16 ; do mv -f $file ${file//.16/.17} 2> /dev/null ; done
+for file in *.15 ; do mv -f $file ${file//.15/.16} 2> /dev/null ; done
+for file in *.14 ; do mv -f $file ${file//.14/.15} 2> /dev/null ; done
+for file in *.13 ; do mv -f $file ${file//.13/.14} 2> /dev/null ; done
+for file in *.12 ; do mv -f $file ${file//.12/.13} 2> /dev/null ; done
+for file in *.11 ; do mv -f $file ${file//.11/.12} 2> /dev/null ; done
+for file in *.10 ; do mv -f $file ${file//.10/.11} 2> /dev/null ; done
+for file in *.9 ; do mv -f $file ${file//.9/.10} 2> /dev/null ; done
+for file in *.8 ; do mv -f $file ${file//.8/.9} 2> /dev/null ; done
+
+for file in *.7 ; do mv -f $file ${file//.7/.8} 2> /dev/null ; done
+for file in *.6 ; do mv -f $file ${file//.6/.7} 2> /dev/null ; done
+for file in *.5 ; do mv -f $file ${file//.5/.6} 2> /dev/null ; done
+for file in *.4 ; do mv -f $file ${file//.4/.5} 2> /dev/null ; done
+for file in *.3 ; do mv -f $file ${file//.3/.4} 2> /dev/null ; done
+for file in *.2 ; do mv -f $file ${file//.2/.3} 2> /dev/null ; done
+for file in *.1 ; do mv -f $file ${file//.1/.2} 2> /dev/null ; done
+for file in *.sql ; do mv -f $file ${file//sql/sql.1} 2> /dev/null ; done
+
+#test -d "$BACKUPDIR" || mkdir -p "$BACKUPDIR"
+# Get the database list, exclude information_schema
+
+for table  in $(mysql -B -s -h ${HOST} -u $DBUSER --password=$DBPASS -e "SELECT TABLE_NAME FROM information_schema.TABLES where TABLE_SCHEMA='${SCHEMA}' ORDER BY TABLE_NAME")
+do
+#echo "${SCHEMA} - ${table}"	
+  #touch "${BACKUPDIR}/${table}.sql"
+  # dump each database in a separate file
+  /bin/rm "${table}.sql" 2> /dev/null
+  tmpfile="${table}.tmp"
+  /usr/bin/mysqldump -u $DBUSER --password=$DBPASS --no-data -h ${HOST} ${SCHEMA} ${table} > ${tmpfile}
+  
+  while IFS= read -r line
+  do
+	if grep -q "AUTO_INCREMENT=" <<<"${line}"; then
+		echo "${line}" | cut -d" " -f1-2,4- >> ${table}.sql
+	else
+		echo "${line}" >> ${table}.sql
+	fi
+  done <"$tmpfile"
+
+  
+  
+  
+  
+  /usr/bin/diff ${table}.sql ${table}.sql.1 | egrep -v "Dump completed|^---" | sed '1d;$d' > ${table}.diff
+  lastchangedsec=$(stat -c%Y "${table}.sql.1")
+  lastchanged=`TZ="America/Los_Angeles" date -d "@${lastchangedsec}"`
+  
+  diffsize=$(stat -c%s "${table}.diff")
+  
+  if (( diffsize > 10 )); then
+  	echo " " >> ${TMPFILE}
+	echo "------------------------------------------------------------------------------------------" >> ${TMPFILE}
+  	echo "${SCHEMA}.${table} has changed since ${lastchanged}:"  >> ${TMPFILE}
+	echo "------------------------------------------------------------------------------------------"  >> ${TMPFILE}
+   	sed 's/</New: /' ${table}.diff | sed 's/>/Old: /'  >> ${TMPFILE}
+  fi
+  
+done
+
+# Now, send email, if needed
+
+tmpsize=$(stat -c%s "${TMPFILE}")
+
+
+if (( tmpsize > 5 )); then
+	echo "Sending email"
+	echo "<font face=courier><pre>">${TMPFILE}.mail;cat ${TMPFILE}>>${TMPFILE}.mail;echo "</pre></font>">>${TMPFILE}.mail
+	cat ${TMPFILE}.mail | mail -s "${HOST} ${SCHEMA} DDL audit: Changes detected" -a "Content-Type: text/html" ${EMAILTO}
+#	/usr/bin/mail ${EMAILTO} -s"${HOST} ${SCHEMA} DDL audit: Changes detected" < ${TMPFILE}
+fi
+
+
+
+

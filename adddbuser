@@ -1,0 +1,130 @@
+#!/bin/bash
+# rlbyrd, 2018-01-16
+# automate adding db users
+# expects ana|eng dbuser dbpass vacasaEmail on the command line.
+# run with no params for help screen.
+
+
+# define who the database admin users with privs to add users
+MY_ADMIN_USER=xxxxxx
+MY_ADMIN_PASS=yyyyyy
+
+RS_ADMIN_USER=rrrrrr
+# Different passwords for Prod, Stage, Dev
+RSP_ADMIN_PASS=ssssss
+RSS_ADMIN_PASS=ssssss
+RSD_ADMIN_PASS=ssssss
+
+usertype="$1"
+username="$2"
+userpass="$3"
+useremail="$4"
+
+#defaultpass="HillaryTrump2020"
+
+
+if [ "$useremail" == "" ]
+then
+	echo -e "\nUSAGE: $0 [ana|eng] username password email\n\n"
+	exit 1
+fi
+
+if [ "$usertype" == "ana" ]
+then	
+	userrole="job_analyst"
+fi
+
+if [ "$usertype" == "eng" ]
+then	
+	userrole="job_developer"
+fi
+
+
+/usr/local/bin/find_user $useremail
+
+echo -e "\n<RETURN> to continue, <CTRL-C> to abort..."
+head -1
+
+
+read -r -d // mysql_add_sql <<EOF
+GRANT USAGE ON *.* TO '${username}'@'10.62.0.%' IDENTIFIED BY '${3}';
+GRANT SHOW DATABASES, EXECUTE, SHOW VIEW ON *.* TO '${username}'@'10.62.0.%';
+GRANT $userrole TO '${username}'@'10.62.0.%';
+SET DEFAULT ROLE $userrole FOR '${username}'@'10.62.0.%';
+FLUSH PRIVILEGES;
+EOF
+
+echo "$mysql_add_sql" > /tmp/tmp.sql
+
+/usr/bin/mysql -A -u${MY_ADMIN_USER} -p${MY_ADMIN_PASS} -hstage-db < /tmp/tmp.sql
+/usr/bin/mysql -A -u${MY_ADMIN_USER} -p${MY_ADMIN_PASS} -hprod-db < /tmp/tmp.sql
+
+if [ "$usertype" == "eng" ]
+then
+	/usr/bin/mysql -A -u${MY_ADMIN_USER} -p${MY_ADMIN_PASS} -hsync-db.infra.vacasa.com < /tmp/tmp.sql
+fi
+
+shortemail=`echo "$useremail" | cut -f1 -d'@'`
+
+read -r -d // psql_add_sql <<EOF
+create user ${username} password '${userpass}';
+alter group job_analyst add user ${username};
+alter group grp_analyst add user ${username};
+insert into admin.vacasa_user_map values ('$username','$shortemail');
+EOF
+
+echo "$psql_add_sql" > /tmp/tmpprod.psql
+
+read -r -d // psql_add_sql <<EOF
+create user ${username} password '${userpass}';
+alter group job_analyst add user ${username};
+EOF
+
+echo "$psql_add_sql" > /tmp/tmpnonprod.psql
+
+# prod
+PGPASSWORD=${RSP_ADMIN_PASS} psql -h warehouse.vacasa.services -p 5439 -U${RS_ADMIN_USER} -dwarehouse < /tmp/tmpprod.psql
+
+# dev
+PGPASSWORD=${RSD_ADMIN_PASS} psql -h  warehouse.vacasadev.services -p 5439 -U${RS_ADMIN_USER} -dwarehouse  < /tmp/tmpnonprod.psql
+
+# stage
+PGPASSWORD=${RSS_ADMIN_PASS} psql -h  warehouse.vacasastage.services -p 5439 -U${RS_ADMIN_USER} -dwarehouse  < /tmp/tmpnonprod.psql
+
+/bin/rm /tmp/tmp.sql /tmp/tmpprod.psql /tmp/tmpnonprod.psql
+
+
+echo "
+
+Your MySQL and Redshift credentials have been created.  
+
+User name: ${username}
+Password : ${3}
+
+Endpoints for data sources are
+  MySQL Stage: test-db.infra.vacasa.com, port 3306
+  Redshift:  warehouse.vacasa.services, port 5439
+  
+  
+You may also change your Redshift password using this syntax:
+
+  ALTER USER ${username} WITH PASSWORD 'yourNewPassword';
+
+NOTE:  You must be on the VPN to access these resources.  If you have not yet received instructions on connecting to the VPN, contact techsup@vacasa.com.
+
+
+" >/tmp/adddbemail.tmp
+
+echo -e "Emailing $useremail the following text:\n------------------------------------------------------------\n"
+cat /tmp/adddbemail.tmp
+echo -e "\n------------------------------------------------------------\n"
+echo "Press return to send email, ctrl-c to abort."
+head -1
+
+mail -s"Database access" $useremail < /tmp/adddbemail.tmp
+
+
+
+
+
+

@@ -1,0 +1,23 @@
+# local-name|actual name|FQDN
+prod-db|production-db|vc-mariadb-m01-live.cen5fyzrkvqt.us-west-2.rds.amazonaws.com
+stage-db|vc-mariadb-01-tst|vc-mariadb-01-tst.cen5fyzrkvqt.us-west-2.rds.amazonaws.com
+slave1|vc-mariadb-s01-live|vc-mariadb-s01-live.cen5fyzrkvqt.us-west-2.rds.amazonaws.com
+slave2|vc-mariadb-s02-live|vc-mariadb-s02-live.cen5fyzrkvqt.us-west-2.rds.amazonaws.com
+slave3|vc-mariadb-s03-live|vc-mariadb-s03-live.cen5fyzrkvqt.us-west-2.rds.amazonaws.com
+slave4|vc-mariadb-s04-live|vc-mariadb-s04-live.cen5fyzrkvqt.us-west-2.rds.amazonaws.com
+slave5|vc-mariadb-s05-live|vc-mariadb-s05-live.cen5fyzrkvqt.us-west-2.rds.amazonaws.com
+rates-db|rateanalytics-mariadb-m01-live|rateanalytics-mariadb-m01-live.cen5fyzrkvqt.us-west-2.rds.amazonaws.com
+rlbyrd|rlbyrd|cloud.rlbyrd.com
+server1|server1|server1.webspry.net
+server3|server3|server3.webspry.net
+metabase|metabase-mariadb-m01-live|metabase-mariadb-m01-live.cen5fyzrkvqt.us-west-2.rds.amazonaws.com
+rates-slave1|rates-slave1.infra.vacasa.com|rateanalytics-mariadb-s01-live.cen5fyzrkvqt.us-west-2.rds.amazonaws.com
+finance|financepayment-mariadb-m01-live|financepayment-mariadb-m01-live.cen5fyzrkvqt.us-west-2.rds.amazonaws.com
+sync-db|sync-db|sync-db.infra.vacasa.com
+gateway-stage|gw-stage|gateway-mariadb-m01-stage.cen5fyzrkvqt.us-west-2.rds.amazonaws.com
+gateway-prod|gw-prod|gateway-db.infra.vacasa.com
+availtest|rlb-availability-scale-testing|rlb-availability-scale-testing.cen5fyzrkvqt.us-west-2.rds.amazonaws.com
+
+
+
+
