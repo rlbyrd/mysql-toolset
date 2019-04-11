@@ -1,6 +1,6 @@
 #!/usr/bin/perl --
 #
-# addsemi.pl - rlbyrd, 5 April 199
+# addsemi.pl - rlbyrd, 5 April 1999
 #
 # Does what it says.  Point it add a file and this will add a semicolon at the end of
 # lines within.  Particularly suited for handling the output of showgrants.sh to create
