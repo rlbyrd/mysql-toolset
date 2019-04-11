@@ -24,7 +24,6 @@ socket=
 #export white='\033[37m'
 #export boldwhite='\033[1;37m'
 
-
 cecho ()
 
 ## -- Function to easliy print colored text -- ##
