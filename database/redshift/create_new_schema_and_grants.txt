@@ -1,0 +1,3 @@
+ALTER DEFAULT PRIVILEGES IN SCHEMA hubspot GRANT SELECT ON  TABLES TO GROUP grp_fivetran_analyst;
+GRANT SELECT ON ALL TABLES IN SCHEMA secure_scrubbed TO GROUP grp_secure; 
+GRANT USAGE ON SCHEMA secure_scrubbed TO GROUP grp_grp_secure;
