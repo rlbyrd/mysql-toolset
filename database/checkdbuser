@@ -1,1 +1,1 @@
-/usr/bin/mysql -A -usvc_dba_adhoc -pADXEZKZLbgdvcB24nvPu -hprod-db -e"select user,host from mysql.user where user like '$1%';" 
+/usr/bin/mysql -A -usvc_dba_adhoc -pxxxxxxxxx -hprod-db -e"select user,host from mysql.user where user like '$1%';" 
