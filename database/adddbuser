@@ -1,5 +1,5 @@
 #!/bin/bash
-# rlbyrd, 2018-01-16
+# rlbyrd, 2008-01-16
 # automate adding db users
 # expects ana|eng dbuser dbpass vacasaEmail on the command line.
 # run with no params for help screen.
@@ -8,6 +8,9 @@
 # define who the database admin users with privs to add users
 MY_ADMIN_USER=xxxxxx
 MY_ADMIN_PASS=yyyyyy
+RS_PINSTANCE=redshiftProdInstance
+RS_SINSTANCE=redshiftStageInstance
+RS_DINSTANCE=redshiftDevInstance
 
 RS_ADMIN_USER=rrrrrr
 # Different passwords for Prod, Stage, Dev
@@ -61,7 +64,7 @@ echo "$mysql_add_sql" > /tmp/tmp.sql
 
 if [ "$usertype" == "eng" ]
 then
-	/usr/bin/mysql -A -u${MY_ADMIN_USER} -p${MY_ADMIN_PASS} -hsync-db.infra.vacasa.com < /tmp/tmp.sql
+	/usr/bin/mysql -A -u${MY_ADMIN_USER} -p${MY_ADMIN_PASS} -hsync-db /tmp/tmp.sql
 fi
 
 shortemail=`echo "$useremail" | cut -f1 -d'@'`
@@ -70,7 +73,7 @@ read -r -d // psql_add_sql <<EOF
 create user ${username} password '${userpass}';
 alter group job_analyst add user ${username};
 alter group grp_analyst add user ${username};
-insert into admin.vacasa_user_map values ('$username','$shortemail');
+insert into admin.user_map values ('$username','$shortemail');
 EOF
 
 echo "$psql_add_sql" > /tmp/tmpprod.psql
@@ -83,13 +86,13 @@ EOF
 echo "$psql_add_sql" > /tmp/tmpnonprod.psql
 
 # prod
-PGPASSWORD=${RSP_ADMIN_PASS} psql -h warehouse.vacasa.services -p 5439 -U${RS_ADMIN_USER} -dwarehouse < /tmp/tmpprod.psql
+PGPASSWORD=${RSP_ADMIN_PASS} psql -h ${RS_PINSTANCE} -p 5439 -U${RS_ADMIN_USER} -dwarehouse < /tmp/tmpprod.psql
 
 # dev
-PGPASSWORD=${RSD_ADMIN_PASS} psql -h  warehouse.vacasadev.services -p 5439 -U${RS_ADMIN_USER} -dwarehouse  < /tmp/tmpnonprod.psql
+PGPASSWORD=${RSD_ADMIN_PASS} psql -h  ${RS_DINSTANCE} -p 5439 -U${RS_ADMIN_USER} -dwarehouse  < /tmp/tmpnonprod.psql
 
 # stage
-PGPASSWORD=${RSS_ADMIN_PASS} psql -h  warehouse.vacasastage.services -p 5439 -U${RS_ADMIN_USER} -dwarehouse  < /tmp/tmpnonprod.psql
+PGPASSWORD=${RSS_ADMIN_PASS} psql -h  ${RS_SINSTANCE} -p 5439 -U${RS_ADMIN_USER} -dwarehouse  < /tmp/tmpnonprod.psql
 
 /bin/rm /tmp/tmp.sql /tmp/tmpprod.psql /tmp/tmpnonprod.psql
 
@@ -102,15 +105,15 @@ User name: ${username}
 Password : ${3}
 
 Endpoints for data sources are
-  MySQL Stage: test-db.infra.vacasa.com, port 3306
-  Redshift:  warehouse.vacasa.services, port 5439
+  MySQL Stage: stageFQDN, port 3306
+  Redshift:  RedshiftFQDN, port 5439
   
   
 You may also change your Redshift password using this syntax:
 
   ALTER USER ${username} WITH PASSWORD 'yourNewPassword';
 
-NOTE:  You must be on the VPN to access these resources.  If you have not yet received instructions on connecting to the VPN, contact techsup@vacasa.com.
+NOTE:  You must be on the VPN to access these resources.  If you have not yet received instructions on connecting to the VPN, contact techsup@xxxxx.com.
 
 
 " >/tmp/adddbemail.tmp
