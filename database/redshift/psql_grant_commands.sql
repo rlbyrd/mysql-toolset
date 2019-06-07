@@ -86,7 +86,7 @@ FROM
 CROSS JOIN
     pg_tables t
 WHERE
-    u.usename = 'svc_vacasa_gps'
+    u.usename = 'svc_example_gps'
     AND t.tablename = 'all_transactions'
 ;
 

@@ -1,6 +1,6 @@
 #!/usr/bin/perl 
 #
-# richard.byrd@vacasa.com
+# richard.byrd@example.com
 # Dec 2018
 # v0.86
 #
@@ -19,24 +19,24 @@
 #
 # Suitable for adding to cron every xx minutes.
 
-$ADDRESSLIST="richard.byrd\@vacasa.com,mark.butler\@vacasa.com,devender.kaur\@vacasa.com,chris.ryan=\@vacasa.com";
+$ADDRESSLIST="richard.byrd\@example.com,mark.butler\@example.com,devender.kaur\@example.com,chris.ryan=\@example.com";
 
 $NUMSECS=$ARGV[0];
 
 #$TIMERQUERY="select pid, duration/1000000 as seconds, trim(user_name) as user,substring (query,1,200) as querytxt from stv_recents where status = 'Running' and seconds >=NUMSECS order by seconds desc;";
-$TIMERQUERY="select pid, duration/1000000 as seconds, trim(user_name) as user,a.username_vc,substring(query,1,400) as querytxt from stv_recents join admin.vacasa_user_map a on a.username_rs=user_name where status = 'Running' and seconds >=NUMSECS and querytxt NOT LIKE '%VACUUM%' and querytxt NOT LIKE '%vacuum%' order by seconds desc;";
+$TIMERQUERY="select pid, duration/1000000 as seconds, trim(user_name) as user,a.username_vc,substring(query,1,400) as querytxt from stv_recents join admin.example_user_map a on a.username_rs=user_name where status = 'Running' and seconds >=NUMSECS and querytxt NOT LIKE '%VACUUM%' and querytxt NOT LIKE '%vacuum%' order by seconds desc;";
 
 $TIMERQUERY=~s/NUMSECS/$NUMSECS/;
 
 #print $TIMERQUERY;
-$QUERYLIST=`echo "$TIMERQUERY" | PGPASSWORD=<redacted> psql -h  warehouse.vacasa.services -p 5439 -Uvacasaroot -dwarehouse -q -A -t -R 'XXXXX'`;
+$QUERYLIST=`echo "$TIMERQUERY" | PGPASSWORD=<redacted> psql -h  redshiftFQDN -p 5439 -Uexampleroot -dwarehouse -q -A -t -R 'XXXXX'`;
 
 
 @QUERYROWS=split(/XXXXX/,"$QUERYLIST");
 $QUERYCOUNT=0;
 
 #    print "CURRENT REDSHIFT QUERIES THAT HAVE BEEN RUNNING FOR > $NUMSECS SECONDS:\n";
-#    print "(Format is <RSuser>|<vacasaEmail>|<PID>|<secondsRunning>, then query on next line)\n";
+#    print "(Format is <RSuser>|<exampleEmail>|<PID>|<secondsRunning>, then query on next line)\n";
 #    print "---------------------------------------------------------------------------------------------------\n";
 
     $TOTALQUERIES=scalar(@QUERYROWS);
@@ -47,7 +47,7 @@ $QUERYCOUNT=0;
 
 foreach (@QUERYROWS) {
     ($PID,$SECS,$USER,$EMAILADDR,$QUERYTEXT)=split(/\|/,"$_");
-#    print "$USER|$EMAILADDR\@vacasa.com|$PID|$SECS\n$QUERYTEXT\n\n";
+#    print "$USER|$EMAILADDR\@example.com|$PID|$SECS\n$QUERYTEXT\n\n";
     print $fh "---------------------------------------------------------------------------------------------------\n";
     $QUERYCOUNT++;
     
@@ -63,7 +63,7 @@ foreach (@QUERYROWS) {
 
     if ($TOTALQUERIES > 0 ) {
     $syscmd="mail -s'Redshift query WARNING' $ADDRESSLIST < /tmp/rsemail.tmp";
-#    $syscmd="mail -s'Redshift query WARNING' w2m2y2p1r3y2j8a3\@vacasa.slack.com < /tmp/rsemail.tmp";
+#    $syscmd="mail -s'Redshift query WARNING' w2m2y2p1r3y2j8a3\@example.slack.com < /tmp/rsemail.tmp";
     system($syscmd);
     }
 

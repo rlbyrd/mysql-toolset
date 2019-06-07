@@ -9,7 +9,7 @@ BASEDIR="/data/backups/ddl/"
 DBUSER="svc_dba_adhoc"
 DBPASS="ADXEZKZLbgdvcB24nvPu"
 TZ="America/Los_Angeles"
-EMAILTO="richard.byrd@vacasa.com,mark.butler@vacasa.com,rlbyrd@rlbyrd.com"
+EMAILTO="richard.byrd@example.com,mark.butler@example.com,rlbyrd@rlbyrd.com"
 
 
 

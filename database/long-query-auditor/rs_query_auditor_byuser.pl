@@ -1,6 +1,6 @@
 #!/usr/bin/perl 
 #
-# richard.byrd@vacasa.com
+# richard.byrd@example.com
 # Dec 2018
 # v0.86
 #
@@ -20,34 +20,34 @@
 # THIS IS A DEVELOPING PROJECT.
 #
 # This version actually emails the owner of the query (with some exceptions noted below) based on the user mapping in the
-# warehouse.admin.vacasa_user_map table.
+# warehouse.admin.example_user_map table.
 
 $NUMSECS=$ARGV[0];
 
 #$TIMERQUERY="select pid, duration/1000000 as seconds, trim(user_name) as user,substring (query,1,200) as querytxt from stv_recents where status = 'Running' and seconds >=NUMSECS order by seconds desc;";
-$TIMERQUERY="select pid, duration/1000000 as seconds, trim(user_name) as user,a.username_vc,substring(query,1,400) as querytxt from stv_recents join admin.vacasa_user_map a on a.username_rs=user_name where status = 'Running' and seconds >=NUMSECS order by seconds desc;";
+$TIMERQUERY="select pid, duration/1000000 as seconds, trim(user_name) as user,a.username_vc,substring(query,1,400) as querytxt from stv_recents join admin.example_user_map a on a.username_rs=user_name where status = 'Running' and seconds >=NUMSECS order by seconds desc;";
 
 $TIMERQUERY=~s/NUMSECS/$NUMSECS/;
 
 #print $TIMERQUERY;
-$QUERYLIST=`echo "$TIMERQUERY" | PGPASSWORD=<redacted> psql -h  warehouse.vacasa.services -p 5439 -Uvacasaroot -dwarehouse -q -A -t -R 'XXXXX'`;
+$QUERYLIST=`echo "$TIMERQUERY" | PGPASSWORD=<redacted> psql -h  redshiftFQDN -p 5439 -Uexampleroot -dwarehouse -q -A -t -R 'XXXXX'`;
 
 
 @QUERYROWS=split(/XXXXX/,"$QUERYLIST");
 $QUERYCOUNT=0;
 
     print "CURRENT REDSHIFT QUERIES THAT HAVE BEEN RUNNING FOR > $NUMSECS SECONDS:\n";
-    print "(Format is <RSuser>|<vacasaEmail>|<PID>|<secondsRunning>, then query on next line)\n";
+    print "(Format is <RSuser>|<exampleEmail>|<PID>|<secondsRunning>, then query on next line)\n";
     print "---------------------------------------------------------------------------------------------------\n";
 
 foreach (@QUERYROWS) {
     ($PID,$SECS,$USER,$EMAILADDR,$QUERYTEXT)=split(/\|/,"$_");
     
-    if ("$USER" eq "vacasaroot") {
+    if ("$USER" eq "exampleroot") {
         $EMAILADDR="richard.byrd";
     }
     
-    print "$USER|$EMAILADDR\@vacasa.com|$PID|$SECS\n$QUERYTEXT\n\n";
+    print "$USER|$EMAILADDR\@example.com|$PID|$SECS\n$QUERYTEXT\n\n";
     print "---------------------------------------------------------------------------------------------------\n";
     $QUERYCOUNT++;
     
@@ -62,7 +62,7 @@ foreach (@QUERYROWS) {
     
 
     if ("$EMAILADDR" ne "richard.byrd") {
-        $syscmd="mail -s'Redshift query WARNING' $EMAILADDR\@vacasa.com < /tmp/rsemail_auditor.tmp";
+        $syscmd="mail -s'Redshift query WARNING' $EMAILADDR\@example.com < /tmp/rsemail_auditor.tmp";
         system($syscmd);
     }
 }
