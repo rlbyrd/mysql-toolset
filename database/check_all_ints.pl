@@ -4,7 +4,7 @@
 #use warnings;
 # Richard L. Byrd, written sometime in the 90s and improved bit by bit over the next 20 years
 #
-# 2016-01-27: While originally written to take a configfile input on the CLI (--configfile=xxxxx.cfg) I've hacked
+# 2009-01-27: While originally written to take a configfile input on the CLI (--configfile=xxxxx.cfg) I've hacked
 # that out of this version.  The only CLI parameteres required are host, username, password.  Hardcoded warning to
 # 70% and critical to 85%.
 
