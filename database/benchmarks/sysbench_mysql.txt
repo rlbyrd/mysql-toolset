@@ -1,0 +1,88 @@
+WARNING: --num-threads is deprecated, use --threads instead
+WARNING: --max-time is deprecated, use --time instead
+sysbench 1.0.9 (using system LuaJIT 2.0.4)
+
+Running the test with following options:
+Number of threads: 8
+Report intermediate results every 1 second(s)
+Initializing random number generator from current time
+
+
+Initializing worker threads...
+
+Threads started!
+
+FATAL: unable to connect to MySQL server on host '127.0.0.1', port 3306, aborting...
+FATAL: error 1045: Access denied for user 'sbtest'@'localhost' (using password: YES)
+FATAL: `thread_run' function failed: ./oltp.lua:29: Failed to connect to the database
+FATAL: unable to connect to MySQL server on host '127.0.0.1', port 3306, aborting...
+FATAL: error 1045: Access denied for user 'sbtest'@'localhost' (using password: YES)
+FATAL: unable to connect to MySQL server on host '127.0.0.1', port 3306, aborting...
+FATAL: `thread_run' function failed: ./oltp.lua:29: Failed to connect to the database
+FATAL: error 1045: Access denied for user 'sbtest'@'localhost' (using password: YES)
+FATAL: `thread_run' function failed: ./oltp.lua:29: Failed to connect to the database
+FATAL: unable to connect to MySQL server on host '127.0.0.1', port 3306, aborting...
+FATAL: error 1045: Access denied for user 'sbtest'@'localhost' (using password: YES)
+FATAL: unable to connect to MySQL server on host '127.0.0.1', port 3306, aborting...
+FATAL: error 1045: Access denied for user 'sbtest'@'localhost' (using password: YES)
+FATAL: `thread_run' function failed: ./oltp.lua:29: Failed to connect to the database
+FATAL: unable to connect to MySQL server on host '127.0.0.1', port 3306, aborting...
+FATAL: error 1045: Access denied for user 'sbtest'@'localhost' (using password: YES)
+FATAL: unable to connect to MySQL server on host '127.0.0.1', port 3306, aborting...
+FATAL: error 1045: Access denied for user 'sbtest'@'localhost' (using password: YES)
+FATAL: `thread_run' function failed: ./oltp.lua:29: Failed to connect to the database
+(last message repeated 2 times)
+FATAL: unable to connect to MySQL server on host '127.0.0.1', port 3306, aborting...
+FATAL: error 1045: Access denied for user 'sbtest'@'localhost' (using password: YES)
+FATAL: `thread_run' function failed: ./oltp.lua:29: Failed to connect to the database
+WARNING: --num-threads is deprecated, use --threads instead
+WARNING: --max-time is deprecated, use --time instead
+sysbench 1.0.9 (using system LuaJIT 2.0.4)
+
+Running the test with following options:
+Number of threads: 8
+Report intermediate results every 1 second(s)
+Initializing random number generator from current time
+
+
+Initializing worker threads...
+
+Threads started!
+
+FATAL: unable to connect to MySQL server on host '127.0.0.1', port 3306, aborting...
+FATAL: error 1049: Unknown database 'sbtest'
+FATAL: `thread_run' function failed: ./oltp.lua:29: Failed to connect to the database
+FATAL: unable to connect to MySQL server on host '127.0.0.1', port 3306, aborting...
+FATAL: error 1049: Unknown database 'sbtest'
+FATAL: unable to connect to MySQL server on host '127.0.0.1', port 3306, aborting...
+(last message repeated 1 times)
+FATAL: `thread_run' function failed: ./oltp.lua:29: Failed to connect to the database
+FATAL: unable to connect to MySQL server on host '127.0.0.1', port 3306, aborting...
+FATAL: error 1049: Unknown database 'sbtest'
+(last message repeated 2 times)
+FATAL: `thread_run' function failed: ./oltp.lua:29: Failed to connect to the database
+FATAL: unable to connect to MySQL server on host '127.0.0.1', port 3306, aborting...
+FATAL: error 1049: Unknown database 'sbtest'
+FATAL: `thread_run' function failed: ./oltp.lua:29: Failed to connect to the database
+FATAL: unable to connect to MySQL server on host '127.0.0.1', port 3306, aborting...
+FATAL: `thread_run' function failed: ./oltp.lua:29: Failed to connect to the database
+FATAL: error 1049: Unknown database 'sbtest'
+FATAL: `thread_run' function failed: ./oltp.lua:29: Failed to connect to the database
+FATAL: unable to connect to MySQL server on host '127.0.0.1', port 3306, aborting...
+FATAL: error 1049: Unknown database 'sbtest'
+FATAL: `thread_run' function failed: ./oltp.lua:29: Failed to connect to the database
+WARNING: --num-threads is deprecated, use --threads instead
+WARNING: --max-time is deprecated, use --time instead
+sysbench 1.0.9 (using system LuaJIT 2.0.4)
+
+Running the test with following options:
+Number of threads: 8
+Report intermediate results every 1 second(s)
+Initializing random number generator from current time
+
+
+Initializing worker threads...
+
+Threads started!
+
+FATAL: `thread_run' function failed: ./oltp.lua:59: bad argument #2 to 'sb_rand' (cannot convert 'string' to 'unsigned int')

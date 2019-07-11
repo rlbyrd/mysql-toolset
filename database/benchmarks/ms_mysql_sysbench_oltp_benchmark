@@ -1,0 +1,427 @@
+#!/bin/ksh
+#########################################################################
+#
+# Copyright 2006 UnitedHealth Group.  All rights reserved.
+# THIS PROGRAM IS CONFIDENTIAL AND PROPRIETARY INFORMATION BELONGING TO
+# UNITEDHEALTH GROUP, AND MAY ONLY BE USED FOR INTERNAL UNITEDHEALTH GROUP
+# PURPOSES.
+#
+#########################################################################
+function DISPLAYHELP {
+echo "
+#########################################################################
+#
+# Script:       ${RED} ${SCRIPTNAME} ${NO_COLOR}
+#
+# Description:  The script runs the sysbench oltp benchmark in
+#               the specified database for a number of simultaneous
+#               users for a duration of a number of seconds.
+#               At the end, the information displayed will be:
+#               1)Number of queries performed; 2)Number of transactions
+#               and transactions per second; 3)Number of deadlocks;
+#               4)Number of read/write requests and 5)Number of
+#               operations.
+#
+#               The following steps are used to get the most accurate
+#               results:
+#                 1. The server(or servers if cluster) will be recycled
+#                    to clear out bufferpools and memory.
+#                 2. A table called sbtest1 will be created in the
+#                    specified database with the specified number of rows.
+#                    All operations will be done on this table for the
+#                    benchmark.
+#                    If one exists, it will be dropped before creation.
+#                 3. The sql command: "master reset" will be run to clear
+#                    out the binlog directory.
+#
+#
+# Syntax:       ${YELLOW}$USAGE ${NO_COLOR}
+#
+# Input:        ${YELLOW}-b <hostname> ${NO_COLOR}
+#               Connection hostname (box name) where the database resides.
+#               If a cluster, enter all active nodes seperated by :
+#                   (ie. hostname1:hostname2:hostname3)
+#
+#               ${YELLOW}[-c] ${NO_COLOR}
+#               Add comments(optional). If specified, this option will prompt
+#               for comments to be added to the logfile to explain the
+#               benchmark being run.
+#
+#               ${YELLOW}[-d <database] ${NO_COLOR}
+#               Database name(optional) where table sbtest1 is to be created.
+#               If missing, the default database(1st one created) will be
+#               used.
+#
+#               ${YELLOW}[-i <interval reporting seconds>] ${NO_COLOR}
+#               Produce a report every interval seconds. Default is zero -
+#               do not produce an interval report.
+#
+#               ${YELLOW}[-l] ${NO_COLOR}
+#               Skip loading table sbtest1. Use the data that currently exits.
+#
+#               ${YELLOW}[-p <Server name] ${NO_COLOR}
+#               Proxy server name(optional) where the SQL requests are sent.
+#               If this parameter is not specified, SQL requests will go
+#               to the server name(option -h) entered above(ie. if cluster,
+#               the first hostname in the series).
+#
+#               ${YELLOW}[-r <Number of rows>] ${NO_COLOR}
+#               Number of rows to be inserted into table sbtest1 for the test.
+#               Not required if bypassing the table load(option -l).
+#
+#               ${YELLOW}-s <run time seconds> ${NO_COLOR}
+#               Total number of seconds to run the benchmark.
+#
+#               ${YELLOW}-u <Number of users> ${NO_COLOR}
+#               Number of simultaneous users to be used for the benchmark.
+#
+#               ${YELLOW}[-h]${NO_COLOR}
+#               Display the help file.
+#
+#               ${YELLOW}[-x]${NO_COLOR}
+#               Runs the script in debug mode.
+#
+# Output:       ${YELLOW}None${NO_COLOR}
+#
+#########################################################################
+"
+}
+#============================================================================
+# CHANGES:
+# 04/12/13  LAC: Created the script.
+#============================================================================
+#
+function REMOVE_TMP_FILES {
+   #################################################################
+   # Remove temp files.
+   #################################################################
+   $RM -rf $TMPFILE1 1>/dev/null 2>&1
+   $RM -rf $TMPFILE2 1>/dev/null 2>&1
+   $RM -rf $TMPFILE3 1>/dev/null 2>&1
+}
+
+function TERMINATE_SCRIPT {
+   $ECHO "$SCRIPTNAME script ended with RC:$MSRC_CRITICAL at $(${DATECMD})" | $TEE -a $LOGFILE
+   REMOVE_TMP_FILES
+   MSRC_SET_RETURN_CODE_FILE $MSRC_CRITICAL
+   exit $MSRC_CRITICAL
+}
+
+function RECYCLE_SERVER {
+   typeset H
+   for H in $HOSTS; do
+      $ECHO " " | $TEE -a $LOGFILE
+      $ECHO "Stopping MySQL Server On $H - $(${DATECMD})" | $TEE -a $LOGFILE
+      $ECHO "$SSH $H . ~/.profile;${SCRIPTBASEPATH}ms_mysql_stop_server" | $TEE -a $LOGFILE
+      $ECHO " " | $TEE -a $LOGFILE
+      $SSH $H ". ~/.profile;${SCRIPTBASEPATH}ms_mysql_stop_server" 1>$TMPFILE1 2>&1
+      RC=$?
+      $CAT $TMPFILE1 | $TEE -a $LOGFILE
+      if [ $RC -ne 0 ]; then
+         $ECHO " " | $TEE -a $LOGFILE
+         $ECHO "Error Occurred Stopping MySQL Server On $H" | $TEE -a $LOGFILE
+         TERMINATE_SCRIPT
+      fi
+      $ECHO " " | $TEE -a $LOGFILE
+      $ECHO "Starting MySQL Server On $H  - $(${DATECMD})" | $TEE -a $LOGFILE
+      $ECHO "$SSH $H . ~/.profile;${SCRIPTBASEPATH}ms_mysql_start_server" | $TEE -a $LOGFILE
+      $ECHO " " | $TEE -a $LOGFILE
+      $SSH $H ". ~/.profile;${SCRIPTBASEPATH}ms_mysql_start_server" 1>$TMPFILE1 2>&1
+      RC=$?
+      $CAT $TMPFILE1 | $TEE -a $LOGFILE
+      if [ $RC -ne 0 ]; then
+         $ECHO " " | $TEE -a $LOGFILE
+         $ECHO "Error Occurred Starting MySQL Server On $H" | $TEE -a $LOGFILE
+         TERMINATE_SCRIPT
+      fi
+   done
+}
+
+
+function CLEAN_DB {
+   ########################################################################
+   # functon CLEAN_DB does: 1)Drop table sbtest1 if SKIP_LD_TABLE
+   #   flag(option -l) is not set; 2)truncate the binlog
+   #   directory; 3)Recycle the server(s); 4)Insert specified rows into
+   #   table sbtest1 if SKIP_LD_TABLE flag(option -l) is not set.
+   ########################################################################
+   if [ $SKIP_LD_TABLE -eq 0 ]; then
+      $ECHO " " | $TEE -a $LOGFILE
+      $ECHO "Dropping Table sbtest1 if it exists - $(${DATECMD})" | $TEE -a $LOGFILE
+      $ECHO "$HOME/mysql/bin/mysql -v -v -u ${MYSQLADM} -h ${HOST} -D ${DBNAME}" | $TEE -a $LOGFILE
+      $ECHO "    -p MYSQLADMPW  -e 'drop table sbtest1'" | $TEE -a $LOGFILE
+      $ECHO " " | $TEE -a $LOGFILE
+      $HOME/mysql/bin/mysql -v -v -u ${MYSQLADM} -h ${HOST} -D ${DBNAME} -p${MYSQLADMPW} \
+          -e 'drop table sbtest1' 2>&1 | $TEE -a $LOGFILE
+   fi
+   $ECHO " " | $TEE -a $LOGFILE
+   $ECHO "Truncating The Binlog Directory - $(${DATECMD})" | $TEE -a $LOGFILE
+   $ECHO "$HOME/mysql/bin/mysql -v -v -u ${MYSQLADM} -h ${HOST} -D ${DBNAME} -p MYSQLADMPW" | $TEE -a $LOGFILE
+   $ECHO "    -e 'reset master'" | $TEE -a $LOGFILE
+   $ECHO " " | $TEE -a $LOGFILE
+   $HOME/mysql/bin/mysql -v -v -u ${MYSQLADM} -h ${HOST} -D ${DBNAME} -p${MYSQLADMPW} \
+       -e 'reset master' 2>&1 | $TEE -a $LOGFILE
+   if [ $SKIP_LD_TABLE -eq 0 ]; then
+      $ECHO " " | $TEE -a $LOGFILE
+      $ECHO "Preparing OLTP Table sbtest1 In Database ${DBNAME} - $(${DATECMD})" | $TEE -a $LOGFILE
+      $ECHO "   Inserting ${NUMROWS} rows into ${HOST}" | $TEE -a $LOGFILE
+      $ECHO " " | $TEE -a $LOGFILE
+      $ECHO "$HOME/sysbench/sysbench --test=$HOME/sysbench/oltp.lua --oltp-table-size=${NUMROWS} --mysql-db=${DBNAME}" | $TEE -a $LOGFILE
+      $ECHO "    --mysql-user=${MYSQLADM} --mysql-host=${HOST} --mysql-password=MYSQLADMPW prepare" | $TEE -a $LOGFILE
+      $ECHO " " | $TEE -a $LOGFILE
+      $HOME/sysbench/sysbench --test=$HOME/sysbench/oltp.lua --oltp-table-size=${NUMROWS} --mysql-db=${DBNAME} \
+          --mysql-user=${MYSQLADM} --mysql-host=${HOST} --mysql-password=${MYSQLADMPW} \
+          prepare 2>&1 | $TEE -a $LOGFILE
+      $GREP -E "^ALERT:|^FATAL:" $LOGFILE 1>/dev/null 2>&1
+      if [ $? -eq 0 ]; then
+         $ECHO " " | $TEE -a $LOGFILE
+         $ECHO "Error Occurred Inserting Rows Into ${DBNAME}:sbtest1" | $TEE -a $LOGFILE
+         TERMINATE_SCRIPT
+      fi
+      $ECHO " " | $TEE -a $LOGFILE
+      $ECHO "Truncating The Binlog Directory To Remove Inserted Rows - $(${DATECMD})" | $TEE -a $LOGFILE
+      $ECHO "$HOME/mysql/bin/mysql -v -v -u ${MYSQLADM} -h ${HOST} -D ${DBNAME} -p MYSQLADMPW" | $TEE -a $LOGFILE
+      $ECHO "    -e 'reset master'" | $TEE -a $LOGFILE
+      $ECHO " " | $TEE -a $LOGFILE
+      $HOME/mysql/bin/mysql -v -v -u ${MYSQLADM} -h ${PHOST} -D ${DBNAME} -p${MYSQLADMPW} \
+          -e 'reset master' 2>&1 | $TEE -a $LOGFILE
+   fi
+   RECYCLE_SERVER
+}
+
+function OLTP_TEST {
+   ########################################################################
+   # Function OLTP_TEST to run sysbench oltp test for NUMUSERS for
+   #    NUMSECS.
+   ########################################################################
+   $ECHO " " | $TEE -a $LOGFILE
+   $ECHO "Begin OLTP Test For ${NUMUSERS} Connections For ${NUMSECS} Seconds - $(${DATECMD})" | $TEE -a $LOGFILE
+   $ECHO " " | $TEE -a $LOGFILE
+   $ECHO "$HOME/sysbench/sysbench --test=$HOME/sysbench/oltp.lua --oltp-table-size=${NUMROWS} --mysql-db=${DBNAME}" | $TEE -a $LOGFILE
+   $ECHO "    --mysql-user=${MYSQLADM} --mysql-host=${PHOST} --mysql-password=MYSQLADMPW --report-interval=${INTERVAL}" | $TEE -a $LOGFILE
+   $ECHO "    --oltp-test-mode=complex --max-time=${NUMSECS} --max-requests=0 --num-threads=${NUMUSERS} run" | $TEE -a $LOGFILE
+   $ECHO " " | $TEE -a $LOGFILE
+set -vx
+   $HOME/sysbench/sysbench --test=$HOME/sysbench/oltp.lua --oltp-table-size=${NUMROWS} --mysql-db=${DBNAME} \
+       --mysql-user=${MYSQLADM} --mysql-host=${PHOST} --mysql-password=${MYSQLADMPW} --report-interval=${INTERVAL}\
+       --oltp-test-mode=complex --max-time=${NUMSECS} --max-requests=0 --num-threads=${NUMUSERS} run 2>&1 | $TEE -a $LOGFILE
+   $GREP -E "^ALERT:|^FATAL:" $LOGFILE 1>/dev/null 2>&1
+   if [ $? -eq 0 ]; then
+      $ECHO " " | $TEE -a $LOGFILE
+      $ECHO "Error Occurred Running OLTP Test For ${DBNAME}:sbtest1" | $TEE -a $LOGFILE
+      TERMINATE_SCRIPT
+   fi
+   $ECHO " " | $TEE -a $LOGFILE
+   $ECHO "End Of OLTP Test For ${NUMUSERS} Connections For ${NUMSECS} Seconds - $(${DATECMD})" | $TEE -a $LOGFILE
+   $ECHO " " | $TEE -a $LOGFILE
+}
+
+. $HOME/bin/ms_mysql_load_mysqladm_env
+
+NO_COLOR="\033[0m"
+BLUE="\033[0;34m"
+RED="\033[1;31m"
+WHITE="\033[1;37m"
+YELLOW="\033[1;33m"
+
+DATE=$($DATECMD +%y%m%d)
+TIME=$($DATECMD +%H%M%S)
+DATETIME="${DATE}${TIME}"
+OS_TYPE=$(${UNAME} -s)
+
+if [ "$OS_TYPE" = "Linux" ]; then
+   NO_COLOR=""
+   BLUE=""
+   RED=""
+   WHITE=""
+   YELLOW=""
+fi
+
+export SCRIPTNAME=$($ECHO $0 | $AWK 'BEGIN { FS="/" } {print $NF}')
+COMMAND_LINE=$($ECHO "$0 $@")
+
+USAGE="$SCRIPTNAME -b <hostname> [-c] [-d <database] [-i] [-l] [-p <Server name] [-r <Number of rows>] -s <Number of seconds> -u <Number of users> [-h] [-x]"
+
+ISPATHSET=$($ECHO $PATH | $GREP ${ADMDIR}/bin)
+if [[ $? != "0" ]];then
+   export PATH=${PATH}:${ADMDIR}/bin
+fi
+
+if [ "${MSRC_NORMAL}" = "" ];then
+   . ${SCRIPTBASEPATH}ms_mysql_load_return_codes
+fi
+
+if [ "${ORIG_MS_REQUESTOR}" = "" ];then
+   . ${SCRIPTBASEPATH}ms_mysql_log_requestor
+fi
+
+########################################################################
+# Setup temp files
+########################################################################
+PID=$$
+TMPFILE1="/tmp/${SCRIPTNAME}_${PID}_1.tmp"
+TMPFILE2="/tmp/${SCRIPTNAME}_${PID}_2.tmp"
+TMPFILE3="/tmp/${SCRIPTNAME}_${PID}_3.tmp"
+
+INTERVAL=0
+COMMENTS=0
+NUMSECS=""
+NUMROWS=""
+NUMUSERS=""
+HOSTS=""
+HOST=""
+PHOST=""
+DBNAME=""
+SKIP_LD_TABLE=0
+while getopts :b:d:i:p:s:r:u:clxh KEY $*
+do
+    case $KEY in
+    b) typeset -l HOSTS="$OPTARG";;
+    c) COMMENTS=1;;
+    d) typeset -l DBNAME="$OPTARG";;
+    i) typeset -i INTERVAL=$OPTARG;;
+    l) SKIP_LD_TABLE=1;;
+    p) typeset -l PHOST="$OPTARG";;
+    r) typeset -i NUMROWS=$OPTARG;;
+    s) typeset -i NUMSECS=$OPTARG;;
+    u) typeset -i NUMUSERS=$OPTARG;;
+    x) set -x;;
+    h) DISPLAYHELP;
+       return $MSRC_NORMAL;;
+    *) $ECHO " ";
+       $ECHO "Invalid command line switch: -$OPTARG";
+       $ECHO "   Command Usage: $USAGE ";
+       $ECHO " ";
+       return $MSRC_CRITICAL;;
+    esac
+done
+
+LOGFILE="${SCRIPTLOGPATH}${SCRIPTNAME}.log.$DATE.$TIME"
+$ECHO "$SCRIPTNAME script begins at $(${DATECMD}) by $ORIG_MS_REQUESTOR " | $TEE -a $LOGFILE
+$ECHO "COMMAND_LINE: $COMMAND_LINE" | $TEE -a $LOGFILE
+$ECHO " " | $TEE -a $LOGFILE
+
+RC=$MSRC_NORMAL
+
+##########################################################################
+# Check to make sure hostname(option -h) is is specified.
+##########################################################################
+if [ "${HOSTS}" == "" ]; then
+   $ECHO "Hostname(option -b) Must Be Specified." | $TEE -a $LOGFILE
+   TERMINATE_SCRIPT
+fi
+
+##########################################################################
+# Check for cluster(hostname1:hostname2:hostname3). If cluster,
+#    set variable HOSTS to the cluster and variable HOST to the
+#    first hostname.
+##########################################################################
+$ECHO $HOSTS | $GREP ":" 1>/dev/null 2>&1
+if [ $? -eq 0 ]; then
+      HOST=$($ECHO $HOSTS | $AWK -F":" '{print $1}')
+   else
+      HOST="${HOSTS}"
+fi
+
+##########################################################################
+# Check to make sure number of users(option -u) is specified.
+##########################################################################
+if [ "${NUMUSERS}" == "" ]; then
+   $ECHO "Number Of Users(option -u) Must Be Specified." | $TEE -a $LOGFILE
+   TERMINATE_SCRIPT
+fi
+
+##########################################################################
+# If proxy host is not specified, set it to the hostname specified
+##########################################################################
+if [ "${PHOST}" == "" ]; then
+   PHOST="${HOST}"
+fi
+
+##########################################################################
+# If database name is not specified, use the database 1st created.
+##########################################################################
+if [ "${DBNAME}" == "" ]; then
+   $ECHO " " | $TEE -a $LOGFILE
+   $ECHO "Obtaining Database Name From mysqladm:db_name - $(${DATECMD})" | $TEE -a $LOGFILE
+   $ECHO "${HOME}/mysql/bin/mysql -N -u ${MYSQLADM} -h ${HOST} -D mysqladm -pMYSQLADMPW" | $TEE -a $LOGFILE
+   $ECHO "    -e select '@',dbname from database_name'" | $TEE -a $LOGFILE
+   $ECHO " " | $TEE -a $LOGFILE
+   ${HOME}/mysql/bin/mysql -v -v -N -u ${MYSQLADM} -h ${HOST} -D mysqladm -p${MYSQLADMPW} \
+       -e "select '@',dbname from database_name" 1>$TMPFILE1 2>&1
+   $CAT $TMPFILE1 | $TEE -a $LOGFILE
+   RC=$($GREP -ci "^ERROR" $TMPFILE1 | $AWK '{print $1}')
+   if [ $RC -ne 0 ]; then
+      $ECHO " " | $TEE -a $LOGFILE
+      $ECHO "Error occurred Obtaining Database Name" | $TEE -a $LOGFILE
+      $ECHO " " | $TEE -a $LOGFILE
+      TERMINATE_SCRIPT
+   fi
+   DBNAME=$($CAT $TMPFILE1 | $GREP "^@" | $AWK '{print $2}')
+fi
+
+##########################################################################
+# Check to make sure number of rows(option -r) is specified or
+#    SKIP_LD_TABLE(option -l) is set.
+##########################################################################
+if [ "${NUMROWS}" == "" ] && [  $SKIP_LD_TABLE -eq 0 ]; then
+      $ECHO "Number Of Rows(option -r) Must Be Specified." | $TEE -a $LOGFILE
+      TERMINATE_SCRIPT
+   else
+      if [ $SKIP_LD_TABLE -eq 1 ]; then
+         $ECHO " " | $TEE -a $LOGFILE
+         $ECHO "Obtaining The Number Of Rows From Table ${DBNAME}:sbtest1 - $(${DATECMD})" | $TEE -a $LOGFILE
+         $ECHO "${HOME}/mysql/bin/mysql -N -v -v -u ${MYSQLADM} -h ${HOST} -D ${DBNAME} -pMYSQLADMPW" | $TEE -a $LOGFILE
+         $ECHO "    -e select '@',count(*) from sbtest1" | $TEE -a $LOGFILE
+         $ECHO " " | $TEE -a $LOGFILE
+         ${HOME}/mysql/bin/mysql -N -v -v -u ${MYSQLADM} -h ${HOST} -D ${DBNAME} -p${MYSQLADMPW} \
+             -e "select '@',count(*) from sbtest1" 1>$TMPFILE1 2>&1
+         $CAT $TMPFILE1 | $TEE -a $LOGFILE
+         RC=$($GREP -ci "^ERROR" $TMPFILE1 | $AWK '{print $1}')
+         if [ $RC -ne 0 ]; then
+            $ECHO " " | $TEE -a $LOGFILE
+            $ECHO "Error occurred Obtaining NUMROWS From ${DBNAME}:sbtest1" | $TEE -a $LOGFILE
+            $ECHO " " | $TEE -a $LOGFILE
+            TERMINATE_SCRIPT
+         fi
+         NUMROWS=$($CAT $TMPFILE1 | $GREP "^@" | $AWK '{print $2}')
+      fi
+fi
+
+###############################################################################
+# If comments(option -c) flag is set, read comments and enter them into
+#    the logfile.
+###############################################################################
+if [ $COMMENTS -ne 0 ]; then
+   $ECHO " "  | $TEE -a $LOGFILE
+   $ECHO "Enter comments that will appear in the logfile" | $TEE -a $LOGFILE
+   $ECHO "   Terminate with an empty line" | $TEE -a $LOGFILE
+   $ECHO " "  | $TEE -a $LOGFILE
+   while read LINE?"COMMENT: "; do
+      if [ "${LINE}" == "" ]; then
+         break
+      fi
+      $ECHO "COMMENT: $LINE" >> $LOGFILE
+   done
+fi
+
+###############################################################################
+# CLEAN_DB does: 1)Drop table sbtest1 if it exists; 2)truncate the binlog
+#    directory; 3)Recycle the server; 4)Insert specified rows(NUMROWS) into
+#    table sbtest1.
+###############################################################################
+CLEAN_DB
+
+#############################################################################
+# OLTP_TEST to run sysbench oltp test for number of connections(NUMUSERS)
+#    for the number of seconds(NUMSECS).
+#############################################################################
+OLTP_TEST
+
+$ECHO " " | $TEE -a $LOGFILE
+$ECHO "$SCRIPTNAME script ended with RC:$RC at $(${DATECMD})" | $TEE -a $LOGFILE
+
+REMOVE_TMP_FILES
+
+$ECHO " " | $TEE -a $LOGFILE
+$ECHO "Log file is $LOGFILE"

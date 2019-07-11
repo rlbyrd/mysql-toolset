@@ -1,0 +1,15 @@
+WARNING: --num-threads is deprecated, use --threads instead
+WARNING: --max-time is deprecated, use --time instead
+sysbench 1.0.9 (using system LuaJIT 2.0.4)
+
+Running the test with following options:
+Number of threads: 8
+Report intermediate results every 1 second(s)
+Initializing random number generator from current time
+
+
+Initializing worker threads...
+
+Threads started!
+
+FATAL: `thread_run' function failed: ./oltp.lua:59: bad argument #2 to 'sb_rand' (cannot convert 'string' to 'unsigned int')
