@@ -6,4 +6,4 @@ Over the last 25 years, like most IT professionals, I've amassed a number of "he
 
 As I clean up and document various scripts, they will be added to this repo.
 
-NB: Files are currently arranged rather haphazardly.  This will be changing.
+NB: Files are currently arranged rather haphazardly.  This will be changing. (slowly)
